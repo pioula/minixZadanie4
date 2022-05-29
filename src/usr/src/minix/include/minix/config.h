@@ -66,6 +66,10 @@
 						(should correspond to nice 0) */
 #define MIN_USER_Q	  (NR_SCHED_QUEUES - 1)	/* minimum priority for user
 						   processes */
+
+#define BUCKET_Q    8 /* The priority where processes are scheduled with
+                        buckets. */
+#define NR_BUCKETS  10 /* Number of buckets in which processes are scheduled. */
 /* default scheduling quanta */
 #define USER_QUANTUM 200
 

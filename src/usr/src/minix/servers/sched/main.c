@@ -87,8 +87,9 @@ int main(void)
 				result = EPERM;
 			}
 			break;
-            case SCHEDULING_SET_BUCKET:
-                printf("SET_BUCKET");
+            case SCHEDULING_SETBUCKET:
+                printf("Poziom 4 main.c w sched case\n");
+                result = do_setbucket(&m_in);
                 break;
 		default:
 			result = no_sys(who_e, call_nr);

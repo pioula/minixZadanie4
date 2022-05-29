@@ -25,15 +25,17 @@ static void balance_queues(minix_timer_t *tp);
 #define SCHEDULE_CHANGE_PRIO	0x1
 #define SCHEDULE_CHANGE_QUANTUM	0x2
 #define SCHEDULE_CHANGE_CPU	0x4
+#define SCHEDULE_CHANGE_BUCKET 0x8
 
 #define SCHEDULE_CHANGE_ALL	(	\
 		SCHEDULE_CHANGE_PRIO	|	\
 		SCHEDULE_CHANGE_QUANTUM	|	\
-		SCHEDULE_CHANGE_CPU		\
+		SCHEDULE_CHANGE_CPU		|      \
+        SCHEDULE_CHANGE_BUCKET                      \
 		)
 
 #define schedule_process_local(p)	\
-	schedule_process(p, SCHEDULE_CHANGE_PRIO | SCHEDULE_CHANGE_QUANTUM)
+	schedule_process(p, SCHEDULE_CHANGE_PRIO | SCHEDULE_CHANGE_QUANTUM | SCHEDULE_CHANGE_BUCKET)
 #define schedule_process_migrate(p)	\
 	schedule_process(p, SCHEDULE_CHANGE_CPU)
 
@@ -301,6 +303,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 {
 	int err;
 	int new_prio, new_quantum, new_cpu;
+    uint32_t new_bucket_nr;
 
 	pick_cpu(rmp);
 
@@ -319,8 +322,13 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 	else
 		new_cpu = -1;
 
+    if (flas & SCHEDULE_CHANGE_BUCKET)
+        new_bucket_nr = rmp->bucket_nr;
+    else
+        new_bucket_nr = -1;
+
 	if ((err = sys_schedule(rmp->endpoint, new_prio,
-		new_quantum, new_cpu)) != OK) {
+		new_quantum, new_cpu, new_bucket_nr)) != OK) {
 		printf("PM: An error occurred when trying to schedule %d: %d\n",
 		rmp->endpoint, err);
 	}
@@ -365,3 +373,46 @@ static void balance_queues(minix_timer_t *tp)
 
 	set_timer(&sched_timer, balance_timeout, balance_queues, 0);
 }
+
+/*===========================================================================*
+ *				do_setbucket				     *
+ *===========================================================================*/
+int do_setbucket(message *m_ptr) {
+    printf("Poziom 5 wywołuje do_setbucket w sched!\n");
+    struct schedproc *rmp;
+    int rv;
+    int proc_nr_n;
+    uint32_t old_bucket;
+
+    /* check who can send you requests */
+    if (!accept_message(m_ptr))
+        return EPERM;
+
+    if (sched_isokendpt(m_ptr->m_pm_sched_scheduling_setbucket.endpoint, &proc_nr_n) != OK) {
+        printf("SCHED: WARNING: got an invalid endpoint in OoQ msg "
+               "%d\n", m_ptr->m_pm_sched_scheduling_setbucket.endpoint);
+        return EBADEPT;
+    }
+
+    rmp = &schedproc[proc_nr_n];
+    new_bucket_nr = m_ptr->m_pm_sched_scheduling_setbucket.bucket_nr;
+    if (new_bucket_nr >= NR_BUCKETS || new_bucket_nr < 0) {
+        return EINVAL;
+    }
+
+    /* Store old values, in case we need to roll back the changes */
+    old_bucket_nr = rmp->bucket_nr;
+
+    /* Update the proc entry and reschedule the process */
+    rmp->bucket_nr = m_ptr->m_pm_sched_scheduling_setbucket.bucket_nr;
+
+    if ((rv = schedule_process_local(rmp)) != OK) {
+        /* Something went wrong when rescheduling the process, roll
+         * back the changes to proc struct */
+        rmp->bucket_nr = old_bucket;
+    }
+
+    return rv;
+}
+
+
