@@ -2,12 +2,11 @@
 #include <minix/rs.h>
 #include <unistd.h>
 
-int getlcapid(int bucket_nr) {
-    endpoint pm_pt;
+int set_bucket(int bucket_nr) {
+    endpoint_t pm_pt;
 
     if (minix_rs_lookup("pm", &pm_pt) != 0)
     {
-        printf("PRZYPAŁ");
         errno = ENOSYS;
         return -1;
     }
