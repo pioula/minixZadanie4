@@ -115,6 +115,10 @@ int sched_nice(struct mproc *rmp, int nice)
  *				sched_nice				     *
  *===========================================================================*/
 int do_setbucket(void) {
-    printf("JAJCO!");
+    struct mproc* rmp = find_proc(m_in.m1_i1);
+
+    if ((rv = _taskcall(rmp->mp_scheduler, SCHEDULING_SET_BUCKET, &m))) {
+        return rv;
+    }
     return 1;
 }
