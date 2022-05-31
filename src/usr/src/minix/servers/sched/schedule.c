@@ -101,8 +101,9 @@ int do_noquantum(message *m_ptr)
 	}
 
 	rmp = &schedproc[proc_nr_n];
-	if (rmp->priority < MIN_USER_Q) {
+	if (rmp->priority < MIN_USER_Q && rmp->priority != BUCKET_Q) {
 		rmp->priority += 1; /* lower priority */
+        if (rmp->priority == BUCKET_Q) rmp->priority += 1;
 	}
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
@@ -178,7 +179,6 @@ int do_start_scheduling(message *m_ptr)
 		   process scheduled, and the parent of itself. */
 		rmp->priority   = USER_Q;
 		rmp->time_slice = DEFAULT_USER_TIME_SLICE;
-
 		/*
 		 * Since kernel never changes the cpu of a process, all are
 		 * started on the BSP and the userspace scheduling hasn't
@@ -190,16 +190,16 @@ int do_start_scheduling(message *m_ptr)
 		/* FIXME set the cpu mask */
 #endif
 	}
-	
 	switch (m_ptr->m_type) {
 
 	case SCHEDULING_START:
 		/* We have a special case here for system processes, for which
 		 * quanum and priority are set explicitly rather than inherited 
 		 * from the parent */
-		rmp->priority   = rmp->max_priority;
+        rmp->priority   = BUCKET_Q;
+        rmp->max_priority = BUCKET_Q;
 		rmp->time_slice = m_ptr->m_lsys_sched_scheduling_start.quantum;
-		break;
+        break;
 		
 	case SCHEDULING_INHERIT:
 		/* Inherit current priority and time slice from parent. Since there
@@ -211,6 +211,7 @@ int do_start_scheduling(message *m_ptr)
 
 		rmp->priority = schedproc[parent_nr_n].priority;
 		rmp->time_slice = schedproc[parent_nr_n].time_slice;
+        rmp->bucket_nr = schedproc[parent_nr_n].bucket_nr;
 		break;
 		
 	default: 
@@ -249,7 +250,6 @@ int do_start_scheduling(message *m_ptr)
 	 */
 
 	m_ptr->m_sched_lsys_scheduling_start.scheduler = SCHED_PROC_NR;
-
 	return OK;
 }
 
@@ -283,8 +283,12 @@ int do_nice(message *m_ptr)
 	old_q     = rmp->priority;
 	old_max_q = rmp->max_priority;
 
-	/* Update the proc entry and reschedule the process */
-	rmp->max_priority = rmp->priority = new_q;
+    if (!((new_q != BUCKET_Q && rmp->priority == BUCKET_Q) ||
+            (new_q == BUCKET_Q && rmp->priority != BUCKET_Q))) {
+        /* Update the proc entry and reschedule the process */
+        rmp->max_priority = rmp->priority = new_q;
+    }
+
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
 		/* Something went wrong when rescheduling the process, roll
@@ -322,7 +326,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 	else
 		new_cpu = -1;
 
-    if (flas & SCHEDULE_CHANGE_BUCKET)
+    if (flags & SCHEDULE_CHANGE_BUCKET)
         new_bucket_nr = rmp->bucket_nr;
     else
         new_bucket_nr = -1;
@@ -365,8 +369,12 @@ static void balance_queues(minix_timer_t *tp)
 	for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
 		if (rmp->flags & IN_USE) {
 			if (rmp->priority > rmp->max_priority) {
-				rmp->priority -= 1; /* increase priority */
-				schedule_process_local(rmp);
+                if (rmp->priority != BUCKET_Q) {
+                    rmp->priority -= 1; /* increase priority */
+                    if (rmp->priority == BUCKET_Q)
+                        rmp->priority -= 1;
+                    schedule_process_local(rmp);
+                }
 			}
 		}
 	}
@@ -378,11 +386,11 @@ static void balance_queues(minix_timer_t *tp)
  *				do_setbucket				     *
  *===========================================================================*/
 int do_setbucket(message *m_ptr) {
-    printf("Poziom 5 wywołuje do_setbucket w sched!\n");
+    printf("Poziom 4 wywołuje do_setbucket w sched!!!!\n");
     struct schedproc *rmp;
     int rv;
     int proc_nr_n;
-    uint32_t old_bucket;
+    int old_bucket_nr;
 
     /* check who can send you requests */
     if (!accept_message(m_ptr))
@@ -395,7 +403,7 @@ int do_setbucket(message *m_ptr) {
     }
 
     rmp = &schedproc[proc_nr_n];
-    new_bucket_nr = m_ptr->m_pm_sched_scheduling_setbucket.bucket_nr;
+    int new_bucket_nr = m_ptr->m_pm_sched_scheduling_setbucket.bucket_nr;
     if (new_bucket_nr >= NR_BUCKETS || new_bucket_nr < 0) {
         return EINVAL;
     }
@@ -409,7 +417,7 @@ int do_setbucket(message *m_ptr) {
     if ((rv = schedule_process_local(rmp)) != OK) {
         /* Something went wrong when rescheduling the process, roll
          * back the changes to proc struct */
-        rmp->bucket_nr = old_bucket;
+        rmp->bucket_nr = old_bucket_nr;
     }
 
     return rv;

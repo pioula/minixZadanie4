@@ -4,7 +4,7 @@ int sys_schedule(endpoint_t proc_ep,
 			int priority,
 			int quantum,
 			int cpu,
-            uint32_t bucket_nr)
+            int bucket_nr)
 {
 	message m;
 

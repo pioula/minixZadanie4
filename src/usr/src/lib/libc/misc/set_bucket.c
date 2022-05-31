@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 int set_bucket(int bucket_nr) {
-    printf("Poziom 1 wywołuje pm biblioteczną\n");
+    printf("Poziom 1 wywołuje pm biblioteczną!!!!\n");
     endpoint_t pm_pt;
 
     if (minix_rs_lookup("pm", &pm_pt) != 0)

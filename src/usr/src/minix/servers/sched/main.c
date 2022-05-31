@@ -88,7 +88,7 @@ int main(void)
 			}
 			break;
             case SCHEDULING_SETBUCKET:
-                printf("Poziom 4 main.c w sched case\n");
+                printf("Poziom 3 main.c w sched case\n");
                 result = do_setbucket(&m_in);
                 break;
 		default:

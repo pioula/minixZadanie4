@@ -115,18 +115,16 @@ int sched_nice(struct mproc *rmp, int nice)
  *				sched_nice				     *
  *===========================================================================*/
 int do_setbucket(void) {
-    printf("Poziom 3 wywołuje pm systemowe\n");
-
     int rv;
     struct mproc* rmp = find_proc(m_in.m1_i1);
-
-    if (rmp->mp_flags & IN_USE && !(rmp->mp_flags & PRIV_PROC)) {
+    if (rmp->mp_flags & PRIV_PROC) {
         return EPERM;
     }
     message m;
 
     m.m_pm_sched_scheduling_setbucket.endpoint	= rmp->mp_endpoint;
     m.m_pm_sched_scheduling_setbucket.bucket_nr	= m_in.m1_i2;
+    printf("Poziom 2 wywołuje pm systemowe!!!!\n");
 
     if ((rv = _taskcall(rmp->mp_scheduler, SCHEDULING_SETBUCKET, &m))) {
         return rv;

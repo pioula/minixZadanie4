@@ -132,7 +132,7 @@ struct proc {
   int p_schedules;
 #endif
 
-  u32_t bucket_nr;
+  int p_bucket_nr;
 };
 
 #endif /* __ASSEMBLY__ */

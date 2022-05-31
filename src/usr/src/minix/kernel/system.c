@@ -621,8 +621,12 @@ void kernel_call_resume(struct proc *caller)
 int sched_proc(struct proc *p,
 			int priority,
 			int quantum,
-			int cpu)
+			int cpu,
+            int bucket_nr)
 {
+    if (bucket_nr >= NR_BUCKETS || (bucket_nr < 0 && bucket_nr != -1))
+        return(EINVAL);
+
 	/* Make sure the values given are within the allowed range.*/
 	if ((priority < TASK_Q && priority != -1) || priority > NR_SCHED_QUEUES)
 		return(EINVAL);
@@ -636,7 +640,6 @@ int sched_proc(struct proc *p,
 	if (cpu != -1 && !(cpu_is_ready(cpu)))
 		return EBADCPU;
 #endif
-
 	/* In some cases, we might be rescheduling a runnable process. In such
 	 * a case (i.e. if we are updating the priority) we set the NO_QUANTUM
 	 * flag before the generic unset to dequeue/enqueue the process
@@ -669,6 +672,8 @@ int sched_proc(struct proc *p,
 	if (cpu != -1)
 		p->p_cpu = cpu;
 #endif
+    if (bucket_nr != -1)
+        p->p_bucket_nr = bucket_nr;
 
 	/* Clear the scheduling bit and enqueue the process */
 	RTS_UNSET(p, RTS_NO_QUANTUM);

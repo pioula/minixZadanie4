@@ -988,7 +988,7 @@ typedef struct {
 	int quantum;
 	int priority;
 	int cpu;
-    uint32_t bucket_nr;
+    int bucket_nr;
 
 	uint8_t padding[36];
 } mess_lsys_krn_schedule;
@@ -1590,7 +1590,7 @@ _ASSERT_MSG_SIZE(mess_pm_sched_scheduling_set_nice);
 
 typedef struct {
     endpoint_t endpoint;
-    uint32_t bucket_nr;
+    int bucket_nr;
 
     uint8_t padding[48];
 } mess_pm_sched_scheduling_setbucket;
